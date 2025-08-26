@@ -159,6 +159,18 @@ public class BackgroundTaskPlugin: NSObject, FlutterPlugin, CLLocationManagerDel
             Self.handlerRawHandle = args?["callbackHandlerRawHandle"] as? Int
             debugPrint("registered \(String(describing: args))")
             result(true)
+        } else if (call.method == "pause_location_update") {
+            Self.locationManager?.stopUpdatingLocation()
+            result(true)
+        } else if (call.method == "resume_location_update") {
+            Self.locationManager?.startUpdatingLocation()
+            result(true)
+        } else if (call.method == "pause_significant_location_update") {
+            Self.locationManager?.stopMonitoringSignificantLocationChanges()
+            result(true)
+        } else if (call.method == "resume_significant_location_update") {
+            Self.locationManager?.startMonitoringSignificantLocationChanges()
+            result(true)
         }
     }
     
