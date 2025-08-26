@@ -250,12 +250,17 @@ public class BackgroundTaskPlugin: NSObject, FlutterPlugin, CLLocationManagerDel
                 name: ChannelName.methods.value,
                 binaryMessenger: Self.dispatchEngine.binaryMessenger
             )
+            // Forward every call to the same handler used by the main engine.
+            let instance = self  // capture the plugin instance
             dispatchChannel.setMethodCallHandler { call, result in
-                if (call.method == "callback_channel_initialized") {
-                    dispatchChannel.invokeMethod("notify_callback_dispatcher", arguments: nil)
-                    result(true)
-                }
+                instance.handle(call, result: result)
             }
+            // dispatchChannel.setMethodCallHandler { call, result in
+            //     if (call.method == "callback_channel_initialized") {
+            //         dispatchChannel.invokeMethod("notify_callback_dispatcher", arguments: nil)
+            //         result(true)
+            //     }
+            // }
             Self.dispatchChannel = dispatchChannel
             Self.isRegisteredDispatchEngine = true
         }
