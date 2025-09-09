@@ -38,6 +38,8 @@ public class BackgroundTaskPlugin: NSObject, FlutterPlugin, CLLocationManagerDel
     static var dispatchChannel: FlutterMethodChannel?
     static var dispatcherRawHandle: Int?
     static var handlerRawHandle: Int?
+
+    static var lastLocSrc: String?
     
     private var isEnabledEvenIfKilled: Bool {
         return UserDefaultsRepository.instance.fetchIsEnabledEvenIfKilled()
@@ -133,7 +135,7 @@ public class BackgroundTaskPlugin: NSObject, FlutterPlugin, CLLocationManagerDel
             locationManager.delegate = self
             locationManager.requestAlwaysAuthorization()
             if (isEnabledEvenIfKilled) {
-                locationManager.startMonitoringSignificantLocationChanges()
+                startBgChangeServices(locationManager)
             }
             locationManager.startUpdatingLocation()
             Self.locationManager = locationManager
@@ -144,7 +146,7 @@ public class BackgroundTaskPlugin: NSObject, FlutterPlugin, CLLocationManagerDel
             result(true)
         } else if (call.method == "stop_background_task") {
             UserDefaultsRepository.instance.saveIsEnabledEvenIfKilled(false)
-            Self.locationManager?.stopMonitoringSignificantLocationChanges()
+            stopBgChangeServices(Self.locationManager)
             Self.locationManager?.stopUpdatingLocation()
             Self.isRunning = false
             StatusEventStreamHandler.eventSink?(
@@ -166,11 +168,13 @@ public class BackgroundTaskPlugin: NSObject, FlutterPlugin, CLLocationManagerDel
             Self.locationManager?.startUpdatingLocation()
             result(true)
         } else if (call.method == "pause_significant_location_update") {
-            Self.locationManager?.stopMonitoringSignificantLocationChanges()
+            stopBgChangeServices(Self.locationManager)
             result(true)
         } else if (call.method == "resume_significant_location_update") {
-            Self.locationManager?.startMonitoringSignificantLocationChanges()
+            startBgChangeServices(Self.locationManager)
             result(true)
+        } else if (call.method == "get_last_loc_src") {
+            result(Self.lastLocSrc);
         }
     }
     
@@ -185,7 +189,7 @@ public class BackgroundTaskPlugin: NSObject, FlutterPlugin, CLLocationManagerDel
             locationManager.distanceFilter = distanceFilter
             locationManager.desiredAccuracy = desiredAccuracy.kCLLocation
             locationManager.delegate = self
-            locationManager.startMonitoringSignificantLocationChanges()
+            startBgChangeServices(locationManager)
             locationManager.startUpdatingLocation()
             Self.locationManager = locationManager
             Self.isRunning = true
@@ -195,13 +199,13 @@ public class BackgroundTaskPlugin: NSObject, FlutterPlugin, CLLocationManagerDel
     
     public func applicationDidEnterBackground(_ application: UIApplication) {
         if (isEnabledEvenIfKilled) {
-            Self.locationManager?.startMonitoringSignificantLocationChanges()
+            startBgChangeServices(Self.locationManager)
         }
     }
     
     public func applicationWillTerminate(_ application: UIApplication) {
         if (isEnabledEvenIfKilled) {
-            Self.locationManager?.startMonitoringSignificantLocationChanges()
+            startBgChangeServices(Self.locationManager)
         }
     }
 
@@ -212,9 +216,19 @@ public class BackgroundTaskPlugin: NSObject, FlutterPlugin, CLLocationManagerDel
         )
     }
 
+    public func locationManager(_ manager: CLLocationManager, didVisit visit: CLVisit) {
+        Self.lastLocSrc = "visit";
+        onCoordinate(visit.coordinate)
+    }
+
     public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        let lat = locations.last?.coordinate.latitude
-        let lng = locations.last?.coordinate.longitude
+        Self.lastLocSrc = "loc";
+        onCoordinate(locations.last?.coordinate)
+    }
+
+    private func onCoordinate(_ coordinate: CLLocationCoordinate2D?) {
+        let lat = coordinate?.latitude
+        let lng = coordinate?.longitude
         let location = ["lat": lat, "lng": lng] as [String : Double?]
         
         BgEventStreamHandler.eventSink?(location)
@@ -236,6 +250,16 @@ public class BackgroundTaskPlugin: NSObject, FlutterPlugin, CLLocationManagerDel
         StatusEventStreamHandler.eventSink?(
             StatusEventStreamHandler.StatusType.error(message: error.localizedDescription).value
         )
+    }
+
+    private func startBgChangeServices(_ locationManager: CLLocationManager?) {
+        locationManager?.startMonitoringSignificantLocationChanges()
+        locationManager?.startMonitoringVisits()
+    }
+
+    private func stopBgChangeServices(_ locationManager: CLLocationManager?) {
+        locationManager?.stopMonitoringSignificantLocationChanges()
+        locationManager?.stopMonitoringVisits()
     }
     
     private func registerDispatchEngine() {

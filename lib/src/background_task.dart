@@ -127,7 +127,7 @@ class BackgroundTask {
           message: value.length > 1 ? value[1] : null,
         );
       }).asBroadcastStream();
-  
+
   Future<void> pauseLocationUpdate() async {
     await _methodChannel.invokeMethod<bool>('pause_location_update');
   }
@@ -137,10 +137,16 @@ class BackgroundTask {
   }
 
   Future<void> pauseSignificantLocationUpdate() async {
-    await _methodChannel.invokeMethod<bool>('pause_significant_location_update');
+    await _methodChannel
+        .invokeMethod<bool>('pause_significant_location_update');
   }
 
   Future<void> resumeSignificantLocationUpdate() async {
-    await _methodChannel.invokeMethod<bool>('resume_significant_location_update');
+    await _methodChannel
+        .invokeMethod<bool>('resume_significant_location_update');
+  }
+
+  Future<String?> lastSrc() async {
+    return await _methodChannel.invokeMethod<String?>('get_last_loc_src');
   }
 }
